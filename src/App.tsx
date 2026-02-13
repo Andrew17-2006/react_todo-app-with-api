@@ -104,7 +104,10 @@ export const App: React.FC = () => {
     } finally {
       setTempTodo(null);
       setIsAdding(false);
-      inputRef.current?.focus();
+
+      setTimeout(() => {
+        inputRef.current?.focus();
+      });
     }
   }
 
@@ -115,6 +118,10 @@ export const App: React.FC = () => {
       .deleteTodo(id)
       .then(() => {
         setTodos(prev => prev.filter(todo => todo.id !== id));
+
+        setTimeout(() => {
+          inputRef.current?.focus();
+        });
       })
       .catch(() => {
         setError('Unable to delete a todo');
@@ -127,10 +134,10 @@ export const App: React.FC = () => {
   function handleClearCompleted() {
     const completedTodos = todos.filter(todo => todo.completed);
 
-    completedTodos.forEach(todo => {
+    const deletePromises = completedTodos.map(todo => {
       setProcessingIds(prev => [...prev, todo.id]);
 
-      doTodo
+      return doTodo
         .deleteTodo(todo.id)
         .then(() => {
           setTodos(prev => prev.filter(t => t.id !== todo.id));
@@ -141,6 +148,12 @@ export const App: React.FC = () => {
         .finally(() => {
           setProcessingIds(prev => prev.filter(id => id !== todo.id));
         });
+    });
+
+    Promise.all(deletePromises).then(() => {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      });
     });
   }
 
@@ -189,15 +202,21 @@ export const App: React.FC = () => {
   function handleRename(todo: Todo) {
     const trimmed = editTitle.trim();
 
-    if (trimmed === todo.title) {
-      setEditingId(null);
-
-      return;
-    }
-
     if (!trimmed) {
-      setEditingId(null);
-      handleDelete(todo.id);
+      setProcessingIds(prev => [...prev, todo.id]);
+
+      doTodo
+        .deleteTodo(todo.id)
+        .then(() => {
+          setTodos(prev => prev.filter(t => t.id !== todo.id));
+          setEditingId(null);
+        })
+        .catch(() => {
+          setError('Unable to delete a todo');
+        })
+        .finally(() => {
+          setProcessingIds(prev => prev.filter(id => id !== todo.id));
+        });
 
       return;
     }
@@ -208,13 +227,13 @@ export const App: React.FC = () => {
       .updateTodo(todo.id, { title: trimmed })
       .then(updatedTodo => {
         setTodos(prev => prev.map(t => (t.id === todo.id ? updatedTodo : t)));
+        setEditingId(null);
       })
       .catch(() => {
         setError('Unable to update a todo');
       })
       .finally(() => {
         setProcessingIds(prev => prev.filter(id => id !== todo.id));
-        setEditingId(null);
       });
   }
 
@@ -225,13 +244,14 @@ export const App: React.FC = () => {
       <div className="todoapp__content">
         <header className="todoapp__header">
           {/* this button should have `active` class only if all todos are completed */}
-          <button
-            onClick={handleToggleAll}
-            disabled={todos.length === 0}
-            type="button"
-            className={`todoapp__toggle-all ${allCompleted ? 'active' : ''}`}
-            data-cy="ToggleAllButton"
-          />
+          {todos.length > 0 && (
+            <button
+              onClick={handleToggleAll}
+              type="button"
+              className={`todoapp__toggle-all ${allCompleted ? 'active' : ''}`}
+              data-cy="ToggleAllButton"
+            />
+          )}
 
           {/* Add a todo on form submit */}
           <form onSubmit={handleSubmit}>
@@ -271,6 +291,13 @@ export const App: React.FC = () => {
                   <form
                     onSubmit={event => {
                       event.preventDefault();
+
+                      if (editTitle.trim() === todo.title) {
+                        setEditingId(null);
+
+                        return;
+                      }
+
                       handleRename(todo);
                     }}
                   >
@@ -335,7 +362,9 @@ export const App: React.FC = () => {
                   />
                 </label>
 
-                <span className="todo__title">{tempTodo.title}</span>
+                <span className="todo__title" data-cy="TodoTitle">
+                  {tempTodo.title}
+                </span>
 
                 <div data-cy="TodoLoader" className="modal overlay is-active">
                   <div className="modal-background has-background-white-ter" />
@@ -355,6 +384,7 @@ export const App: React.FC = () => {
             {/* Active link should have the 'selected' class */}
             <nav className="filter" data-cy="Filter">
               <a
+                data-cy="FilterLinkAll"
                 href="#/"
                 className={`filter__link ${filter === 'all' ? 'selected' : ''}`}
                 onClick={() => setFilter('all')}
@@ -363,6 +393,7 @@ export const App: React.FC = () => {
               </a>
 
               <a
+                data-cy="FilterLinkActive"
                 href="#/active"
                 className={`filter__link ${filter === 'active' ? 'selected' : ''}`}
                 onClick={() => setFilter('active')}
@@ -371,6 +402,7 @@ export const App: React.FC = () => {
               </a>
 
               <a
+                data-cy="FilterLinkCompleted"
                 href="#/completed"
                 className={`filter__link ${filter === 'completed' ? 'selected' : ''}`}
                 onClick={() => setFilter('completed')}
