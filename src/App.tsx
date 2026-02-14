@@ -2,17 +2,18 @@
 /* eslint-disable jsx-a11y/control-has-associated-label */
 /* eslint-disable jsx-a11y/label-has-associated-control */
 /* eslint-disable jsx-a11y/control-has-associated-label */
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserWarning } from './UserWarning';
 import { USER_ID } from './api/todos';
-import { useState } from 'react';
 import { Todo } from './types/Todo';
 import * as doTodo from './api/todos';
+import { Filter } from './types/Filter';
+import { ErrorMessage } from './types/ErrorMessage';
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [error, setError] = useState<string>('');
-  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [filter, setFilter] = useState<Filter>(Filter.All);
 
   const [title, setTitle] = useState('');
   const [tempTodo, setTempTodo] = useState<Todo | null>(null);
@@ -28,12 +29,11 @@ export const App: React.FC = () => {
       const data = await doTodo.getTodos();
 
       setTodos(data);
-    } catch (err) {
-      setError('Unable to load todos');
+    } catch {
+      setError(ErrorMessage.LoadTodos);
     }
   };
 
-  //фокус при старт
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -47,9 +47,7 @@ export const App: React.FC = () => {
       return;
     }
 
-    const timer = setTimeout(() => {
-      setError('');
-    }, 3000);
+    const timer = setTimeout(() => setError(''), 3000);
 
     return () => clearTimeout(timer);
   }, [error]);
@@ -60,9 +58,9 @@ export const App: React.FC = () => {
 
   const visibleTodos = todos.filter(todo => {
     switch (filter) {
-      case 'active':
+      case Filter.Active:
         return !todo.completed;
-      case 'completed':
+      case Filter.Completed:
         return todo.completed;
       default:
         return true;
@@ -74,11 +72,10 @@ export const App: React.FC = () => {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
     const trimmedTitle = title.trim();
 
     if (!trimmedTitle) {
-      setError('Title should not be empty');
+      setError(ErrorMessage.EmptyTitle);
 
       return;
     }
@@ -100,14 +97,11 @@ export const App: React.FC = () => {
       setTodos(prev => [...prev, newTodo]);
       setTitle('');
     } catch {
-      setError('Unable to add a todo');
+      setError(ErrorMessage.AddTodo);
     } finally {
       setTempTodo(null);
       setIsAdding(false);
-
-      setTimeout(() => {
-        inputRef.current?.focus();
-      });
+      setTimeout(() => inputRef.current?.focus());
     }
   }
 
@@ -118,14 +112,9 @@ export const App: React.FC = () => {
       .deleteTodo(id)
       .then(() => {
         setTodos(prev => prev.filter(todo => todo.id !== id));
-
-        setTimeout(() => {
-          inputRef.current?.focus();
-        });
+        setTimeout(() => inputRef.current?.focus());
       })
-      .catch(() => {
-        setError('Unable to delete a todo');
-      })
+      .catch(() => setError(ErrorMessage.DeleteTodo))
       .finally(() => {
         setProcessingIds(prev => prev.filter(pid => pid !== id));
       });
@@ -142,18 +131,14 @@ export const App: React.FC = () => {
         .then(() => {
           setTodos(prev => prev.filter(t => t.id !== todo.id));
         })
-        .catch(() => {
-          setError('Unable to delete a todo');
-        })
+        .catch(() => setError(ErrorMessage.DeleteTodo))
         .finally(() => {
           setProcessingIds(prev => prev.filter(id => id !== todo.id));
         });
     });
 
     Promise.all(deletePromises).then(() => {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      });
+      setTimeout(() => inputRef.current?.focus());
     });
   }
 
@@ -161,15 +146,11 @@ export const App: React.FC = () => {
     setProcessingIds(prev => [...prev, todo.id]);
 
     doTodo
-      .updateTodo(todo.id, {
-        completed: !todo.completed,
-      })
+      .updateTodo(todo.id, { completed: !todo.completed })
       .then(updatedTodo => {
         setTodos(prev => prev.map(t => (t.id === todo.id ? updatedTodo : t)));
       })
-      .catch(() => {
-        setError('Unable to update a todo');
-      })
+      .catch(() => setError(ErrorMessage.UpdateTodo))
       .finally(() => {
         setProcessingIds(prev => prev.filter(id => id !== todo.id));
       });
@@ -190,9 +171,7 @@ export const App: React.FC = () => {
         .then(updatedTodo => {
           setTodos(prev => prev.map(t => (t.id === todo.id ? updatedTodo : t)));
         })
-        .catch(() => {
-          setError('Unable to update a todo');
-        })
+        .catch(() => setError(ErrorMessage.UpdateTodo))
         .finally(() => {
           setProcessingIds(prev => prev.filter(id => id !== todo.id));
         });
@@ -211,9 +190,7 @@ export const App: React.FC = () => {
           setTodos(prev => prev.filter(t => t.id !== todo.id));
           setEditingId(null);
         })
-        .catch(() => {
-          setError('Unable to delete a todo');
-        })
+        .catch(() => setError(ErrorMessage.DeleteTodo))
         .finally(() => {
           setProcessingIds(prev => prev.filter(id => id !== todo.id));
         });
@@ -229,9 +206,7 @@ export const App: React.FC = () => {
         setTodos(prev => prev.map(t => (t.id === todo.id ? updatedTodo : t)));
         setEditingId(null);
       })
-      .catch(() => {
-        setError('Unable to update a todo');
-      })
+      .catch(() => setError(ErrorMessage.UpdateTodo))
       .finally(() => {
         setProcessingIds(prev => prev.filter(id => id !== todo.id));
       });
@@ -387,7 +362,7 @@ export const App: React.FC = () => {
                 data-cy="FilterLinkAll"
                 href="#/"
                 className={`filter__link ${filter === 'all' ? 'selected' : ''}`}
-                onClick={() => setFilter('all')}
+                onClick={() => setFilter(Filter.All)}
               >
                 All
               </a>
@@ -396,7 +371,7 @@ export const App: React.FC = () => {
                 data-cy="FilterLinkActive"
                 href="#/active"
                 className={`filter__link ${filter === 'active' ? 'selected' : ''}`}
-                onClick={() => setFilter('active')}
+                onClick={() => setFilter(Filter.Active)}
               >
                 Active
               </a>
@@ -405,7 +380,7 @@ export const App: React.FC = () => {
                 data-cy="FilterLinkCompleted"
                 href="#/completed"
                 className={`filter__link ${filter === 'completed' ? 'selected' : ''}`}
-                onClick={() => setFilter('completed')}
+                onClick={() => setFilter(Filter.Completed)}
               >
                 Completed
               </a>
