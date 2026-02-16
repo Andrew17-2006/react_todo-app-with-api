@@ -76,6 +76,7 @@ export const App: React.FC = () => {
 
     if (!trimmedTitle) {
       setError(ErrorMessage.EmptyTitle);
+
       return;
     }
 
