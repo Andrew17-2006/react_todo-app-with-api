@@ -76,7 +76,6 @@ export const App: React.FC = () => {
 
     if (!trimmedTitle) {
       setError(ErrorMessage.EmptyTitle);
-
       return;
     }
 
@@ -96,10 +95,11 @@ export const App: React.FC = () => {
 
       setTodos(prev => [...prev, newTodo]);
       setTitle('');
+      setTempTodo(null);
     } catch {
       setError(ErrorMessage.AddTodo);
-    } finally {
       setTempTodo(null);
+    } finally {
       setIsAdding(false);
       setTimeout(() => inputRef.current?.focus());
     }
